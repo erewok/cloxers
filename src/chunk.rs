@@ -1,3 +1,4 @@
+use crate::value::Value;
 use std::fmt::{self, Write};
 
 #[derive(Debug, Clone)]
@@ -5,13 +6,20 @@ pub struct Chunk {
     // The book also has counts for allocated and used capacity.
     // We will use a Vec<u8> to store the bytecode instead.
     pub code: Vec<u8>,
+    pub constants: Vec<Value>,
 }
 
+impl Default for Chunk {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Chunk {
     pub fn new() -> Self {
         Self {
             code: Vec::new(),
+            constants: Vec::new(),
         }
     }
 
@@ -21,14 +29,19 @@ impl Chunk {
 
     pub fn disassemble(&self, name: &str) -> Result<String, fmt::Error> {
         let mut output = String::new();
-        write!(&mut output, "== {} ==\n", name)?;
+        writeln!(&mut output, "== {} ==", name)?;
         for (i, byte) in self.code.iter().enumerate() {
             self.disassemble_instruction(&mut output, i, byte)?;
         }
         Ok(output)
     }
 
-    pub fn disassemble_instruction(&self, output: &mut dyn Write, offset: usize, byte: &u8) -> Result<(), fmt::Error> {
+    pub fn disassemble_instruction(
+        &self,
+        output: &mut dyn Write,
+        offset: usize,
+        byte: &u8,
+    ) -> Result<(), fmt::Error> {
         write!(output, "{:04} ", offset)?;
         if offset > 0 && self.code[offset - 1] == *byte {
             write!(output, "   | ")?;
@@ -38,23 +51,22 @@ impl Chunk {
 
         match *byte {
             0 => self.simple_instruction(output, "OP_RETURN"),
-            1 => self.simple_instruction(output,"OP_CONSTANT"),
-            2 => self.simple_instruction(output,"OP_NIL"),
-            3 => self.simple_instruction(output,"OP_TRUE"),
-            4 => self.simple_instruction(output,"OP_FALSE"),
-            5 => self.simple_instruction(output,"OP_ADD"),
-            6 => self.simple_instruction(output,"OP_SUBTRACT"),
-            7 => self.simple_instruction(output,"OP_MULTIPLY"),
-            8 => self.simple_instruction(output,"OP_DIVIDE"),
-            _ => write!(output, "Unknown opcode {}", byte),
+            1 => self.simple_instruction(output, "OP_CONSTANT"),
+            2 => self.simple_instruction(output, "OP_NIL"),
+            3 => self.simple_instruction(output, "OP_TRUE"),
+            4 => self.simple_instruction(output, "OP_FALSE"),
+            5 => self.simple_instruction(output, "OP_ADD"),
+            6 => self.simple_instruction(output, "OP_SUBTRACT"),
+            7 => self.simple_instruction(output, "OP_MULTIPLY"),
+            8 => self.simple_instruction(output, "OP_DIVIDE"),
+            _ => writeln!(output, "Unknown opcode {}", byte),
         }
     }
 
     pub fn simple_instruction(&self, output: &mut dyn Write, name: &str) -> Result<(), fmt::Error> {
-        write!(output, "{}\n", name)
+        writeln!(output, "{}", name)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
