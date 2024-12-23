@@ -1,0 +1,37 @@
+on:
+  pull_request:
+    branches:
+      - "main"
+
+permissions:
+  checks: write
+  contents: read
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Install Rust specified toolchain
+        run: rustup show
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-nextest,cargo-udeps
+      - name: Code quality checks
+        run: |
+          cd ${{ github.workspace }}
+          just check
+      - name: Run tests
+        run: |
+          cd ${{ github.workspace }}
+          just ci-test
