@@ -6,12 +6,16 @@ use crate::error::CloxersError;
 use crate::opcodes::OpCode;
 use crate::value::Value;
 
+/// A chunk of bytecode.
+/// This struct implements a custom IntoIterator so we can iterate over OpCodes *only*
+/// and not the operands.
 #[derive(Debug, Clone)]
 pub struct Chunk {
     // The book also has counts for allocated and used capacity.
     // We will use a Vec<u8> to store the bytecode instead.
     pub code: Vec<u8>,
     pub constants: Vec<Value>,
+    pub lines: Vec<usize>, // line numbers for debugging
 }
 
 impl Default for Chunk {
@@ -25,16 +29,18 @@ impl Chunk {
         Self {
             code: Vec::new(),
             constants: Vec::new(),
+            lines: Vec::new(),
         }
     }
 
     /// Writes a byte to the chunk: may be opcode or operand.
-    pub fn write(&mut self, byte: u8) {
+    pub fn write(&mut self, byte: u8, line: usize) {
         self.code.push(byte);
+        self.lines.push(line);
     }
 
     /// Writes a constant to the chunk: opcode followed by operand's index (as u8) in constants vec.
-    pub fn write_constant(&mut self, value: Value) -> Result<()> {
+    pub fn write_constant(&mut self, value: Value, line: usize) -> Result<()> {
         // Is this an off-by-one error?
         if self.constants.len() > (u8::MAX as usize) {
             return Err(CloxersError::ConstantsOverflowed).into_diagnostic();
@@ -45,8 +51,8 @@ impl Chunk {
             .map_err(|_| CloxersError::OpCodeError { code: index as u8 })
             .into_diagnostic()
             .wrap_err("Cannot convert constant index to u8")?;
-        self.write(OpCode::Constant.into());
-        self.write(index);
+        self.write(OpCode::Constant.into(), line);
+        self.write(index, line);
         Ok(())
     }
 
@@ -95,10 +101,12 @@ impl Chunk {
         }
     }
 
+    /// Writes a simple instruction to the output.
     pub fn simple_instruction(&self, output: &mut dyn Write, name: &str) -> Result<()> {
         writeln!(output, "{}", name).map_err(|_| miette!("Cannot write simple instruction"))
     }
 
+    /// Writes a constant instruction to the output.
     pub fn constant_instruction(
         &self,
         output: &mut dyn Write,
@@ -131,7 +139,7 @@ impl Chunk {
 /// We will implement an iterator for the Chunk struct so we can iterate
 /// over the bytecode *and* operands in the chunk.
 pub struct ChunkIter<'a> {
-    // Program counter lets us know where we are in the chunk.
+    // Program counter should always point to an OppCode u8.
     pc: usize,
     code: &'a [u8],
 }
@@ -191,7 +199,7 @@ mod tests {
     #[test]
     fn test_chunk_write() {
         let mut chunk = Chunk::new();
-        chunk.write(OpCode::Return.into());
+        chunk.write(OpCode::Return.into(), 0);
         assert_eq!(chunk.code.len(), 1);
         assert_eq!(chunk.code[0], OpCode::Return.try_into().unwrap());
     }
@@ -199,12 +207,12 @@ mod tests {
     #[test]
     fn test_chunk_disassemble() {
         let mut chunk = Chunk::new();
-        chunk.write(OpCode::Return.into());
-        let _ = chunk.write_constant(Value::Number(1.2));
-        let _ = chunk.write_constant(Value::Number(-5.0));
-        let _ = chunk.write(OpCode::Add.into());
-        let _ = chunk.write(OpCode::Subtract.into());
-        let _ = chunk.write(OpCode::Multiply.into());
+        chunk.write(OpCode::Return.into(), 5);
+        let _ = chunk.write_constant(Value::Number(1.2), 1);
+        let _ = chunk.write_constant(Value::Number(-5.0),1 );
+        let _ = chunk.write(OpCode::Add.into(), 2);
+        let _ = chunk.write(OpCode::Subtract.into(), 3);
+        let _ = chunk.write(OpCode::Multiply.into(), 4);
         let result = chunk.disassemble("test");
         println!("{:?}", result);
         assert!(result.is_ok());
