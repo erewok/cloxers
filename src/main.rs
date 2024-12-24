@@ -2,7 +2,6 @@ use clap::Parser;
 use std::io::{self, Write};
 
 use cloxers::chunk::Chunk;
-use cloxers::error;
 use cloxers::opcodes::OpCode;
 use cloxers::vm::VM;
 use cloxers::value::Value;
