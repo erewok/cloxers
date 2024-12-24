@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::error::CloxersError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     Number(f64),
     Bool(bool),

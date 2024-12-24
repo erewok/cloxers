@@ -84,3 +84,29 @@ impl VM<'_> {
         Ok(())
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chunk::Chunk;
+    use crate::opcodes::OpCode;
+    use crate::value::Value;
+
+    #[test]
+    fn test_vm() {
+        let mut chunk = Chunk::new();
+        let _ = chunk.write_constant(Value::Number(1.2), 1);
+        let _ = chunk.write_constant(Value::Number(3.4), 1);
+        let _ = chunk.write(OpCode::Add.into(), 1);
+        let _ = chunk.write_constant(Value::Number(5.6), 2);
+        let _ = chunk.write(OpCode::Divide.into(), 4);
+        let mut vm = VM::new(&chunk);
+        vm.run().unwrap();
+        assert_eq!(vm.stack.len(), 1);
+        let result = vm.stack.pop().unwrap();
+        let close_enough = Value::Number(0.8214285714285714);
+        let close_enough = result.subtract(&close_enough).unwrap();
+        assert!(close_enough <= Value::Number(0.0000000000001));
+    }
+}

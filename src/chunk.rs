@@ -91,7 +91,7 @@ impl Chunk {
             Ok(op_code) => match op_code {
                 OpCode::Return => self.simple_instruction(output, op_code.name()),
                 OpCode::Constant => self.arity1_instruction(output, op_code.name(), op1_offset),
-                OpCode::Negate => self.arity1_instruction(output, op_code.name(), op1_offset),
+                OpCode::Negate => self.simple_instruction(output, op_code.name()),
                 OpCode::Add => self.simple_instruction(output, op_code.name()),
                 OpCode::Subtract => self.simple_instruction(output, op_code.name()),
                 OpCode::Multiply => self.simple_instruction(output, op_code.name()),
