@@ -1,4 +1,5 @@
 use std::fmt;
+use std::option::Option;
 
 use miette::Diagnostic;
 use thiserror::Error;
@@ -24,10 +25,12 @@ pub enum CloxersError {
     TypeError(String),
 }
 
+
 #[derive(Error, Diagnostic, Debug)]
 pub enum InterpreterError {
     CompileError,
     RuntimeError,
+    ScannerError(Option<String>),
 }
 
 impl fmt::Display for InterpreterError {
@@ -35,6 +38,8 @@ impl fmt::Display for InterpreterError {
         match self {
             InterpreterError::CompileError => write!(f, "Compile error"),
             InterpreterError::RuntimeError => write!(f, "Runtime error"),
+            InterpreterError::ScannerError(Some(s)) => write!(f, "Scanner error: {}", s),
+            InterpreterError::ScannerError(None) => write!(f, "Scanner error"),
         }
     }
 }
