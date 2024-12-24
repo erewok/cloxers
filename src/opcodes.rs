@@ -6,13 +6,13 @@ use std::fmt;
 pub enum OpCode {
     // takes 0 operands
     Return,
-    // takes 1 operand
-    Constant,
-    // takes 2 operands
+    Negate,
     Add,
     Subtract,
     Multiply,
     Divide,
+    // takes 1 operand
+    Constant,
 }
 
 impl OpCode {
@@ -20,6 +20,7 @@ impl OpCode {
         match self {
             OpCode::Return => "OP_RETURN",
             OpCode::Constant => "OP_CONSTANT",
+            OpCode::Negate => "OP_NEGATE",
             OpCode::Add => "OP_ADD",
             OpCode::Subtract => "OP_SUBTRACT",
             OpCode::Multiply => "OP_MULTIPLY",
@@ -31,10 +32,11 @@ impl OpCode {
         match self {
             OpCode::Return => 0,
             OpCode::Constant => 1,
-            OpCode::Add => 2,
-            OpCode::Subtract => 2,
-            OpCode::Multiply => 2,
-            OpCode::Divide => 2,
+            OpCode::Negate => 1,
+            OpCode::Add => 0,
+            OpCode::Subtract => 0,
+            OpCode::Multiply => 0,
+            OpCode::Divide => 0,
         }
     }
 }

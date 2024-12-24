@@ -1,6 +1,8 @@
 use clap::Parser;
 use std::io::{self, Write};
 
+use cloxers::vm::VM;
+
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

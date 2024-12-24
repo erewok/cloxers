@@ -13,9 +13,9 @@ use crate::value::Value;
 pub struct Chunk {
     // The book also has counts for allocated and used capacity.
     // We will use a Vec<u8> to store the bytecode instead.
-    pub code: Vec<u8>,
-    pub constants: Vec<Value>,
-    pub lines: Vec<usize>, // line numbers for debugging
+    code: Vec<u8>,
+    constants: Vec<Value>,
+    lines: Vec<usize>, // line numbers for debugging
 }
 
 impl Default for Chunk {
@@ -31,6 +31,10 @@ impl Chunk {
             constants: Vec::new(),
             lines: Vec::new(),
         }
+    }
+
+    pub fn read_constant(&self, offset: usize) -> Option<&Value> {
+        self.constants.get(offset)
     }
 
     /// Writes a byte to the chunk: may be opcode or operand.
@@ -86,7 +90,8 @@ impl Chunk {
         match OpCode::try_from(*op_code_byte) {
             Ok(op_code) => match op_code {
                 OpCode::Return => self.simple_instruction(output, op_code.name()),
-                OpCode::Constant => self.constant_instruction(output, op_code.name(), op1_offset),
+                OpCode::Constant => self.arity1_instruction(output, op_code.name(), op1_offset),
+                OpCode::Negate => self.arity1_instruction(output, op_code.name(), op1_offset),
                 OpCode::Add => self.simple_instruction(output, op_code.name()),
                 OpCode::Subtract => self.simple_instruction(output, op_code.name()),
                 OpCode::Multiply => self.simple_instruction(output, op_code.name()),
@@ -107,7 +112,7 @@ impl Chunk {
     }
 
     /// Writes a constant instruction to the output.
-    pub fn constant_instruction(
+    pub fn arity1_instruction(
         &self,
         output: &mut dyn Write,
         name: &str,
@@ -122,8 +127,7 @@ impl Chunk {
             .into_diagnostic()
             .wrap_err("Cannot disassemble constant instruction");
         }
-        self.constants
-            .get(offset)
+        self.read_constant(offset)
             .map(|value| {
                 let _ = writeln!(output, "{:<16}\t{} => {}", name, offset, value)
                     .map_err(|_| miette!("Cannot write constant instruction header"));
@@ -209,7 +213,7 @@ mod tests {
         let mut chunk = Chunk::new();
         chunk.write(OpCode::Return.into(), 5);
         let _ = chunk.write_constant(Value::Number(1.2), 1);
-        let _ = chunk.write_constant(Value::Number(-5.0),1 );
+        let _ = chunk.write_constant(Value::Number(-5.0), 1);
         let _ = chunk.write(OpCode::Add.into(), 2);
         let _ = chunk.write(OpCode::Subtract.into(), 3);
         let _ = chunk.write(OpCode::Multiply.into(), 4);
@@ -222,12 +226,11 @@ mod tests {
         let expected = concat!(
             "== test ==\n",
             "1. 0000 OP_RETURN\n",
-            "2. 0001 OP_CONSTANT     	0 => 1.2\n",
-            "3. 0001 OP_CONSTANT     	1 => -5\n",
+            "2. 0006 OP_CONSTANT     	0 => 1.2\n",
+            "3. 0006 OP_CONSTANT     	1 => -5\n",
             "4. 0002 OP_ADD\n",
-            // we haven't implemented these yet so pc counter will go too far; no panics though!
-            // "5. 0006 OP_SUBTRACT\n",
-            // "6. 0007 OP_MULTIPLY\n",
+            "5. 0003 OP_SUBTRACT\n",
+            "6. 0004 OP_MULTIPLY\n",
         );
         println!("{}", result);
         assert_eq!(expected, result);
