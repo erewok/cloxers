@@ -23,25 +23,33 @@ impl Value {
     pub fn add(&self, other: &Value) -> Result<Value, CloxersError> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a + b)),
-            _ => Err(CloxersError::TypeError("Operands must be numbers".to_string())),
+            _ => Err(CloxersError::TypeError(
+                "Operands must be numbers".to_string(),
+            )),
         }
     }
     pub fn subtract(&self, other: &Value) -> Result<Value, CloxersError> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a - b)),
-            _ => Err(CloxersError::TypeError("Operands must be numbers".to_string())),
+            _ => Err(CloxersError::TypeError(
+                "Operands must be numbers".to_string(),
+            )),
         }
     }
     pub fn multiply(&self, other: &Value) -> Result<Value, CloxersError> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a * b)),
-            _ => Err(CloxersError::TypeError("Operands must be numbers".to_string())),
+            _ => Err(CloxersError::TypeError(
+                "Operands must be numbers".to_string(),
+            )),
         }
     }
     pub fn divide(&self, other: &Value) -> Result<Value, CloxersError> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a / b)),
-            _ => Err(CloxersError::TypeError("Operands must be numbers".to_string())),
+            _ => Err(CloxersError::TypeError(
+                "Operands must be numbers".to_string(),
+            )),
         }
     }
 }

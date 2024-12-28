@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use miette::{miette, Context, IntoDiagnostic, Result};
+use miette::{miette, Context, IntoDiagnostic};
 
 use crate::error::CloxersError;
 use crate::opcodes::OpCode;
@@ -44,17 +44,15 @@ impl Chunk {
     }
 
     /// Writes a constant to the chunk: opcode followed by operand's index (as u8) in constants vec.
-    pub fn write_constant(&mut self, value: Value, line: usize) -> Result<()> {
+    pub fn write_constant(&mut self, value: Value, line: usize) -> Result<(), CloxersError> {
         // Is this an off-by-one error?
         if self.constants.len() > (u8::MAX as usize) {
-            return Err(CloxersError::ConstantsOverflowed).into_diagnostic();
+            return Err(CloxersError::ConstantsOverflowed);
         }
         let index = self.add_constant(value);
         let index = index
             .try_into()
-            .map_err(|_| CloxersError::OpCodeError { code: index as u8 })
-            .into_diagnostic()
-            .wrap_err("Cannot convert constant index to u8")?;
+            .map_err(|_| CloxersError::OpCodeError { code: index as u8 })?;
         self.write(OpCode::Constant.into(), line);
         self.write(index, line);
         Ok(())
@@ -66,10 +64,9 @@ impl Chunk {
         self.constants.len() - 1
     }
 
-    pub fn disassemble(&self, name: &str) -> Result<String> {
+    pub fn disassemble(&self, name: &str) -> Result<String, CloxersError> {
         let mut output = String::new();
-        writeln!(&mut output, "== {} ==", name)
-            .map_err(|_| miette!("Cannot write disassembly header for {}", name))?;
+        writeln!(&mut output, "== {} ==", name).map_err(|e| CloxersError::from(e))?;
         for (idx, bytearray) in self.into_iter().enumerate() {
             // instruction index starts at 1 for disassembly
             self.disassemble_instruction(&mut output, idx + 1, &bytearray)?;
@@ -82,33 +79,34 @@ impl Chunk {
         output: &mut dyn Write,
         idx: usize,
         bytearray: &[u8; 3],
-    ) -> Result<()> {
+    ) -> Result<(), CloxersError> {
         let [op_code_byte, op1_offset, _op2_offset] = bytearray;
-        write!(output, "{}. {:04} ", idx, op_code_byte)
-            .map_err(|_| miette!("Cannot write offset at 0"))?;
+        write!(output, "{}. {:04} ", idx, op_code_byte).map_err(|e| CloxersError::from(e))?;
 
-        match OpCode::try_from(*op_code_byte) {
-            Ok(op_code) => match op_code {
-                OpCode::Return => self.simple_instruction(output, op_code.name()),
-                OpCode::Constant => self.arity1_instruction(output, op_code.name(), op1_offset),
-                OpCode::Negate => self.simple_instruction(output, op_code.name()),
-                OpCode::Add => self.simple_instruction(output, op_code.name()),
-                OpCode::Subtract => self.simple_instruction(output, op_code.name()),
-                OpCode::Multiply => self.simple_instruction(output, op_code.name()),
-                OpCode::Divide => self.simple_instruction(output, op_code.name()),
-            },
-            Err(e) => Err(CloxersError::OpCodeError {
+        // Convert the opcode byte to an OpCode enum
+        let op_code = OpCode::try_from(*op_code_byte).map_err(|_e|   {
+            CloxersError::OpCodeError {
                 code: *op_code_byte,
-            })
-            .into_diagnostic()
-            .context(e)
-            .wrap_err("Cannot disassemble instruction"),
+            }
+        })?;
+        match op_code {
+            OpCode::Return => self.simple_instruction(output, op_code.name()),
+            OpCode::Constant => self.arity1_instruction(output, op_code.name(), op1_offset),
+            OpCode::Negate => self.simple_instruction(output, op_code.name()),
+            OpCode::Add => self.simple_instruction(output, op_code.name()),
+            OpCode::Subtract => self.simple_instruction(output, op_code.name()),
+            OpCode::Multiply => self.simple_instruction(output, op_code.name()),
+            OpCode::Divide => self.simple_instruction(output, op_code.name()),
         }
     }
 
     /// Writes a simple instruction to the output.
-    pub fn simple_instruction(&self, output: &mut dyn Write, name: &str) -> Result<()> {
-        writeln!(output, "{}", name).map_err(|_| miette!("Cannot write simple instruction"))
+    pub fn simple_instruction(
+        &self,
+        output: &mut dyn Write,
+        name: &str,
+    ) -> Result<(), CloxersError> {
+        writeln!(output, "{}", name).map_err(|e| CloxersError::from(e))
     }
 
     /// Writes a constant instruction to the output.
@@ -117,25 +115,23 @@ impl Chunk {
         output: &mut dyn Write,
         name: &str,
         offset: &u8, // this byte refers to an index in the constants vec
-    ) -> Result<()> {
+    ) -> Result<(), CloxersError> {
         let offset = *offset as usize;
         if offset >= self.code.len() {
             return Err(CloxersError::BadInstruction(format!(
                 "Missing constant index {}",
                 offset
-            )))
-            .into_diagnostic()
-            .wrap_err("Cannot disassemble constant instruction");
+            )));
         }
         self.read_constant(offset)
             .map(|value| {
-                let _ = writeln!(output, "{:<16}\t{} => {}", name, offset, value)
-                    .map_err(|_| miette!("Cannot write constant instruction header"));
+                writeln!(output, "{:<16}\t{} => {}", name, offset, value)
+                    .map_err(|e| CloxersError::from(e));
             })
             .ok_or_else(|| {
-                let _ = write!(output, "{:<16} {} <invalid constant>", name, offset);
-                miette!("Cannot write constant instruction")
-            })?;
+                write!(output, "{:<16} {} <invalid constant>", name, offset)
+                    .map_err(|e| CloxersError::from(e));
+            });
         Ok(())
     }
 }
@@ -205,7 +201,8 @@ mod tests {
         let mut chunk = Chunk::new();
         chunk.write(OpCode::Return.into(), 0);
         assert_eq!(chunk.code.len(), 1);
-        assert_eq!(chunk.code[0], OpCode::Return.try_into().unwrap());
+        let byte: u8 = OpCode::Return.try_into().unwrap();
+        assert_eq!(chunk.code[0], byte);
     }
 
     #[test]

@@ -5,12 +5,15 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.23", features = ["derive"] }
+itertools = "0.13.0"
 miette = { version = "7.4.0", features = ["fancy"] }
 num_enum = "0.7.3"
 thiserror = "2.0.9"
 
 [dev-dependencies]
 criterion = "0.5.1"
+strum = "0.26"
+strum_macros = "0.26"
 
 [[bench]]
 name = "bench_vm"

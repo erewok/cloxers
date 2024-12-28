@@ -1,9 +1,8 @@
-use criterion::{criterion_group, criterion_main, Criterion};
 use cloxers::chunk::Chunk;
 use cloxers::opcodes::OpCode;
-use cloxers::vm::VM;
 use cloxers::value::Value;
-
+use cloxers::vm::VM;
+use criterion::{criterion_group, criterion_main, Criterion};
 
 fn run_arithmetic() {
     let mut chunk = Chunk::new();
@@ -12,7 +11,7 @@ fn run_arithmetic() {
     let _ = chunk.write(OpCode::Add.into(), 1);
     let _ = chunk.write_constant(Value::Number(5.6), 2);
     let _ = chunk.write(OpCode::Divide.into(), 4);
-    chunk.write(OpCode::Return.into(),2);
+    chunk.write(OpCode::Return.into(), 2);
     VM::new(&chunk).run().unwrap();
 }
 

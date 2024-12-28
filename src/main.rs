@@ -2,9 +2,10 @@ use clap::Parser;
 use std::io::{self, Write};
 
 use cloxers::chunk::Chunk;
+use cloxers::interpreter::Interpreter;
 use cloxers::opcodes::OpCode;
-use cloxers::vm::VM;
 use cloxers::value::Value;
+use cloxers::vm::VM;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -33,7 +34,6 @@ fn run_prompt() {
 
 fn run_file(filename: &str) {
     let source = std::fs::read_to_string(filename).unwrap();
-    todo!("Run file: {}", source);
     let mut interpreter = Interpreter::new();
     match interpreter.run(&source) {
         Ok(_) => (),
@@ -46,15 +46,6 @@ fn run_file(filename: &str) {
 
 fn main() {
     let args = Args::parse();
-    let mut chunk = Chunk::new();
-    let _ = chunk.write_constant(Value::Number(1.2), 1);
-    let _ = chunk.write_constant(Value::Number(3.4), 1);
-    let _ = chunk.write(OpCode::Add.into(), 1);
-    let _ = chunk.write_constant(Value::Number(5.6), 2);
-    let _ = chunk.write(OpCode::Divide.into(), 4);
-    chunk.write(OpCode::Return.into(),2);
-    VM::new(&chunk).run().unwrap();
-
     if args.filename.is_none() {
         run_prompt();
     } else {

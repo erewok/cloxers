@@ -1,5 +1,5 @@
 use crate::{
-    error::InterpreterError,
+    error::CompilerError,
     token::{Token, TokenType},
 };
 use std::iter::Peekable;
@@ -8,11 +8,11 @@ use std::str::Chars;
 pub struct Scanner<'a> {
     // all the source code as a peekable iterator
     source: Peekable<Chars<'a>>,
-    // tokens: Vec<Token>,
     start: usize,
     pub current: usize,
     pub line: usize,
     // We're going to immediately turn sourcecode into an iterator
+    // So we'll need to cache the length.
     source_length: usize,
 }
 
@@ -21,7 +21,6 @@ impl<'a> Scanner<'a> {
         let source_length = source.len();
         Self {
             source: source.chars().peekable(),
-            // tokens: vec![],
             start: 0,
             current: 0,
             line: 1,
@@ -32,7 +31,7 @@ impl<'a> Scanner<'a> {
         self.current >= self.source_length
     }
 
-    fn advance(&mut self) -> Option<char> {
+    pub fn advance(&mut self) -> Option<char> {
         self.current += 1;
         self.source.next()
     }
@@ -58,7 +57,7 @@ impl<'a> Scanner<'a> {
         c.is_alphabetic() || c == &'_'
     }
 
-    fn scan_identifier(&mut self, start_char: char) -> Result<Option<Token>, InterpreterError> {
+    fn scan_identifier(&mut self, start_char: char) -> Result<Option<Token>, CompilerError> {
         let mut chars = vec![start_char];
         while self.source.peek().map_or(false, Self::is_alpha) {
             chars.push(self.advance().unwrap_or_default());
@@ -73,7 +72,7 @@ impl<'a> Scanner<'a> {
             self.start,
         )))
     }
-    fn scan_number(&mut self, start_char: char) -> Result<Option<Token>, InterpreterError> {
+    fn scan_number(&mut self, start_char: char) -> Result<Option<Token>, CompilerError> {
         let mut chars = vec![start_char];
 
         while Self::is_digit(self.source.peek()) {
@@ -94,7 +93,7 @@ impl<'a> Scanner<'a> {
         )))
     }
 
-    fn scan_string(&mut self) -> Result<Option<Token>, InterpreterError> {
+    fn scan_string(&mut self) -> Result<Option<Token>, CompilerError> {
         let mut chars = vec![];
         while self.source.peek() != Some(&'"') && !self.is_at_end() {
             if self.source.peek() == Some(&'\n') {
@@ -104,7 +103,7 @@ impl<'a> Scanner<'a> {
         }
         // unterminated string
         if self.is_at_end() {
-            return Err(InterpreterError::ScannerError(None));
+            return Err(CompilerError::ScannerError(None));
         }
         // chop the closing "
         self.advance();
@@ -116,11 +115,11 @@ impl<'a> Scanner<'a> {
         )))
     }
 
-    fn scan_token(&mut self) -> Result<Option<Token>, InterpreterError> {
+    fn scan_token(&mut self) -> Result<Option<Token>, CompilerError> {
         let _char = self.advance();
         let loxchar = match _char {
             Some(loxchar) => loxchar,
-            None => return Err(InterpreterError::ScannerError(None)),
+            None => return Err(CompilerError::ScannerError(None)),
         };
         let next_token = match loxchar {
             '(' => Some(Token::new(
@@ -227,14 +226,14 @@ impl<'a> Scanner<'a> {
                 if Self::is_alpha(&ch) {
                     self.scan_identifier(loxchar)?
                 } else {
-                    return Err(InterpreterError::ScannerError(Some(loxchar.to_string())));
+                    return Err(CompilerError::ScannerError(Some(loxchar.to_string())));
                 }
             }
         };
         Ok(next_token)
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, InterpreterError> {
+    pub fn scan_all_tokens(&mut self) -> Result<Vec<Token>, CompilerError> {
         let mut tokens = vec![];
         while !self.is_at_end() {
             self.start = self.current;
@@ -245,6 +244,17 @@ impl<'a> Scanner<'a> {
         }
         tokens.push(Token::end(self.line, self.start));
         Ok(tokens)
+    }
+    pub fn scan_next_token(&mut self) -> Result<Option<Token>, CompilerError> {
+        if self.is_at_end() {
+            Ok(Some(Token::end(self.line, self.start)))
+        } else {
+            let mut token = self.scan_token()?;
+            while token.is_none() {
+                token = self.scan_token()?;
+            }
+            Ok(token)
+        }
     }
 }
 
@@ -337,10 +347,10 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_tokens_string() {
+    fn test_scan_all_tokens_string() {
         let source = "\"hello world\"";
         let mut scanner = Scanner::new(source);
-        let tokens = scanner.scan_tokens().unwrap();
+        let tokens = scanner.scan_all_tokens().unwrap();
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].token_type, TokenType::String);
         assert_eq!(tokens[1].token_type, TokenType::Eof);
@@ -355,15 +365,15 @@ mod tests {
         ];
         for case in cases {
             let mut scanner = Scanner::new(case);
-            assert!(scanner.scan_tokens().is_ok());
+            assert!(scanner.scan_all_tokens().is_ok());
         }
     }
 
     #[test]
-    fn test_scan_tokens() {
+    fn test_scan_all_tokens() {
         let source = "var a = 1;";
         let mut scanner = Scanner::new(source);
-        let tokens = scanner.scan_tokens().unwrap();
+        let tokens = scanner.scan_all_tokens().unwrap();
         assert_eq!(tokens.len(), 6);
         assert_eq!(tokens[0].token_type, TokenType::Var);
         assert_eq!(tokens[1].token_type, TokenType::Identifier);
@@ -371,5 +381,25 @@ mod tests {
         assert_eq!(tokens[3].token_type, TokenType::Number);
         assert_eq!(tokens[4].token_type, TokenType::Semicolon);
         assert_eq!(tokens[5].token_type, TokenType::Eof);
+    }
+    #[test]
+    fn test_scan_next_token() {
+        let source = "var a = 1;";
+        let expected = [
+            TokenType::Var,
+            TokenType::Identifier,
+            TokenType::Equal,
+            TokenType::Number,
+            TokenType::Semicolon,
+            TokenType::Eof,
+        ];
+        let mut scanner = Scanner::new(source);
+        for expect in expected.iter() {
+            let token = scanner.scan_next_token().unwrap();
+            eprintln!("Scanned token: {:?}", token);
+            assert!(token.is_some());
+            let token = token.unwrap();
+            assert_eq!(&token.token_type, expect);
+        }
     }
 }

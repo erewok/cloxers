@@ -1,6 +1,13 @@
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
+/// TokenType is an enum that represents the type of token
+/// that the scanner has identified.
+/// DO NOT REORDER!
+#[derive(IntoPrimitive, TryFromPrimitive, Debug, Clone, PartialEq)]
+#[repr(u8)]
+#[cfg_attr(test, derive(strum_macros::EnumIter))]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -32,8 +39,8 @@ pub enum TokenType {
     Class,
     Else,
     False,
-    Fun,
     For,
+    Fun,
     If,
     Nil,
     Or,
@@ -74,6 +81,9 @@ impl TokenType {
     }
     /// If the lexeme is a keyword, return the keyword token type
     pub fn scan_for_keyword(lexeme: &str) -> Option<TokenType> {
+        if lexeme.len() < 2 {
+            return None;
+        }
         let result = match lexeme {
             "and" => TokenType::And,
             "class" => TokenType::Class,
@@ -171,6 +181,18 @@ impl Token {
             line,
             column,
         }
+    }
+
+    fn error_token(&self, msg: &'static str, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::TokenError,
+            lexeme: Some(msg.to_string()),
+            line,
+            column,
+        }
+    }
+    pub fn length(&self) -> usize {
+        self.lexeme.as_ref().map_or(0, |s| s.len())
     }
 }
 

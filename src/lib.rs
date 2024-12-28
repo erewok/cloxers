@@ -1,7 +1,9 @@
 pub mod chunk;
 pub mod compiler;
 pub mod error;
+pub mod interpreter;
 pub mod opcodes;
+pub mod parsing;
 pub mod scanner;
 pub mod token;
 pub mod value;

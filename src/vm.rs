@@ -1,7 +1,7 @@
-use miette::{IntoDiagnostic, Result};
+use miette::Result;
 
 use crate::chunk;
-use crate::error;
+use crate::error::CloxersError;
 use crate::opcodes::OpCode;
 use crate::value;
 
@@ -20,42 +20,49 @@ impl VM<'_> {
         }
     }
 
-    fn run_binary_op(&mut self, op_code: OpCode) -> Result<()> {
-        let b = self.stack.pop().ok_or_else(|| {
-            error::CloxersError::BadInstruction("Stack underflow".to_string())
-        })?;
-        let a = self.stack.pop().ok_or_else(|| {
-            error::CloxersError::BadInstruction("Stack underflow".to_string())
-        })?;
+    fn run_binary_op(&mut self, op_code: OpCode) -> Result<(), CloxersError> {
+        let b = self
+            .stack
+            .pop()
+            .ok_or_else(|| CloxersError::BadInstruction("Stack underflow".to_string()))?;
+        let a = self
+            .stack
+            .pop()
+            .ok_or_else(|| CloxersError::BadInstruction("Stack underflow".to_string()))?;
         let result = match op_code {
             OpCode::Add => a.add(&b)?,
             OpCode::Subtract => a.subtract(&b)?,
             OpCode::Multiply => a.multiply(&b)?,
             OpCode::Divide => a.divide(&b)?,
-            _ => return Err(error::CloxersError::TypeError(format!("Unknown binary operator {}", op_code))).into_diagnostic(),
+            _ => {
+                return Err(CloxersError::TypeError(format!(
+                    "Unknown binary operator {}",
+                    op_code
+                )))
+            }
         };
         self.stack.push(result);
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<(), CloxersError> {
         for bytearray in self.chunk.into_iter() {
             let [op_code_byte, op1_offset, _op2_offset] = bytearray;
             match OpCode::try_from(op_code_byte) {
                 Ok(op_code) => match op_code {
                     OpCode::Return => {
                         let val = self.stack.pop().ok_or_else(|| {
-                            error::CloxersError::BadInstruction("Stack underflow".to_string())
+                            CloxersError::BadInstruction("Stack underflow".to_string())
                         })?;
                         println!("RETURN: {}", val);
-                        return Ok(())
-                    },
+                        return Ok(());
+                    }
                     OpCode::Constant => {
                         let constant =
                             self.chunk
                                 .read_constant(op1_offset as usize)
                                 .ok_or_else(|| {
-                                    error::CloxersError::BadInstruction(format!(
+                                    CloxersError::BadInstruction(format!(
                                         "Missing constant at index {}",
                                         op1_offset
                                     ))
@@ -63,17 +70,13 @@ impl VM<'_> {
                         self.stack.push(constant.clone());
                     }
                     OpCode::Negate => {
-                        let val = self.stack.pop()
-                        .ok_or_else(|| {
-                            error::CloxersError::BadInstruction("Stack underflow".to_string())
+                        let val = self.stack.pop().ok_or_else(|| {
+                            CloxersError::BadInstruction("Stack underflow".to_string())
                         })?;
                         let new_val = val.negate()?;
                         self.stack.push(new_val);
                     }
-                    OpCode::Add
-                    | OpCode::Subtract
-                    | OpCode::Multiply
-                    | OpCode::Divide => {
+                    OpCode::Add | OpCode::Subtract | OpCode::Multiply | OpCode::Divide => {
                         self.run_binary_op(op_code)?;
                     }
                     _ => todo!(),
@@ -84,7 +87,6 @@ impl VM<'_> {
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
